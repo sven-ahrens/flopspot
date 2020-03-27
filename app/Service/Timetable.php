@@ -9,7 +9,11 @@
 namespace App\Service;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use SimpleXMLElement;
 
 /**
@@ -73,30 +77,53 @@ class Timetable
         return simplexml_load_string($response);
     }
 
-    public function getStations(): array
+    /**
+     * @return Collection
+     */
+    public function getStationsByTrain(): Collection
     {
-        $stations = [
-            'arrival' => [],
-            'departure' => []
-        ];
+        $trains = collect([]);
         $stops = $this->getTrainStops($this->getStationIdentifier());
 
         foreach ($stops as $stop) {
-            // c is the type of train. RE, ICE, IC for instance
-            $line = $stop->tl['c'];
+            [$keys, $values] = Arr::divide((array) $stop);
+            $trainType = '';
 
-            // ar and dp (arrival, departure) include some meta information about which line that train is. (24, 105..)
-            if ($stop->ar) {
-                $line .= ' ' . $stop->ar['l'];
-            } else {
-                $line .= ' ' . $stop->dp['l'];
-            }
+            foreach ($keys as $index => $key) {
+                if ($key === 'tl') {
+                    $trainType = $values[$index]['c'];
+                    continue;
+                }
 
-            if ($line !== $this->train) {
-                continue;
+                if ($values[$index] instanceof SimpleXMLElement) {
+                    $train = $trainType . ' ' . $values[$index]['l'];
+                    $time = Str::of($values[$index]['pt'])->substr(6);
+
+                    $values[$index]->addAttribute('time', $time);
+
+                    if ($train === $this->train) {
+                        $trains->add($values[$index]);
+                    }
+                }
             }
         }
 
-        return $stations;
+        return $trains;
+    }
+
+    /**
+     * @param Collection $stations
+     * @return Collection
+     */
+    public function getStationByUserDate(Collection $stations): Collection
+    {
+        $userDate = Carbon::now()->setHours($this->departure['time']->__toString())->setMinutes(0);
+
+        return $stations->filter(function ($station) use ($userDate) {
+            $time = str_split($station['time'], 2);
+            $stationDate = Carbon::now()->setHours($time[0])->setMinutes($time[1]);
+
+            return $userDate->diffInMinutes($stationDate) < 30;
+        });
     }
 }

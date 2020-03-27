@@ -30,10 +30,12 @@ class StationController extends Controller
     {
         $timetable = new Timetable($request->all());
 
-        $stations = $timetable->getStations();
+        $station = $timetable->getStationByUserDate($timetable->getStationsByTrain());
 
-        var_dump($stations);
-
-        return response()->json([], 200);
+        return response()->json([
+            'data' => [
+                'stations' => explode('|', $station->first()['ppth'])
+            ]
+        ], 200);
     }
 }
