@@ -38,15 +38,18 @@ class StationRequest extends FormRequest
      */
     protected function prepareForValidation()
     {
+        $time = Str::of($this->departure)->after('T');
+
         $this->merge([
             'departure' => [
                 'date' => Str::of($this->departure)
                     ->before('T')
                     ->replaceArray('-', ['', ''])
                     ->substr(2),
-                'time' => Str::of($this->departure)
-                    ->after('T')
-                    ->substr(0, 2)
+                'time' => [
+                    'hours' => $time->substr(0, 2),
+                    'minutes' => $time->substr(3, 2)
+                ]
             ],
         ]);
     }

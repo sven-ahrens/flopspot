@@ -72,7 +72,8 @@ class Timetable
      */
     public function getTrainStops(string $id): SimpleXMLElement
     {
-        $response = $this->api->get('plan/' . $id . '/' . implode('/', $this->departure));
+        $dateTime = $this->departure['date']->__toString() . '/' . $this->departure['time']['hours']->__toString();
+        $response = $this->api->get('plan/' . $id . '/' . $dateTime);
 
         return simplexml_load_string($response);
     }
@@ -117,13 +118,16 @@ class Timetable
      */
     public function getStationByUserDate(Collection $stations): Collection
     {
-        $userDate = Carbon::now()->setHours($this->departure['time']->__toString())->setMinutes(0);
+        $userDate = Carbon::now()
+            ->setHours($this->departure['time']['hours']->__toString())
+            ->setMinutes($this->departure['time']['minutes']->__toString());
 
         return $stations->filter(function ($station) use ($userDate) {
             $time = str_split($station['time'], 2);
             $stationDate = Carbon::now()->setHours($time[0])->setMinutes($time[1]);
+            $diff = $userDate->diffInMinutes($stationDate, false);
 
-            return $userDate->diffInMinutes($stationDate) < 30;
+            return $diff === 0 || ($diff < 30 && $diff > 0);
         });
     }
 }
