@@ -75,7 +75,7 @@ class Timetable
         $dateTime = $this->departure['date']->__toString() . '/' . $this->departure['time']['hours']->__toString();
         $response = $this->api->get('plan/' . $id . '/' . $dateTime);
 
-        return simplexml_load_string($response);
+        return simplexml_load_string($response->body());
     }
 
     /**
@@ -88,16 +88,21 @@ class Timetable
 
         foreach ($stops as $stop) {
             [$keys, $values] = Arr::divide((array) $stop);
-            $trainType = '';
+            $train = '';
 
             foreach ($keys as $index => $key) {
+                // For some reason, there are untypical types like 'ME' which have the actual train number included
+                // in one of there arrival or departure blocks
                 if ($key === 'tl') {
-                    $trainType = $values[$index]['c'];
+                    if (array_search($values[$index]['c'], ['ICE', 'IC']) === false) {
+                        break;
+                    }
+
+                    $train = $values[$index]['c'] . ' ' . $values[$index]['n'];
                     continue;
                 }
 
                 if ($values[$index] instanceof SimpleXMLElement) {
-                    $train = $trainType . ' ' . $values[$index]['l'];
                     $time = Str::of($values[$index]['pt'])->substr(6);
 
                     $values[$index]->addAttribute('time', $time);
